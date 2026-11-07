@@ -1,0 +1,10 @@
+{
+  "name": "plamo-local-translate",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "build:wllama": "bash scripts/build-wllama.sh",
+    "serve": "node scripts/serve.mjs"
+  }
+}

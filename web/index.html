@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- 通信はこのサイト自身とモデル配布元 (Hugging Face) だけに制限する。入力テキストは外部へ送れない。 -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'wasm-unsafe-eval' blob:; worker-src 'self' blob:; connect-src 'self' https://huggingface.co https://*.hf.co; style-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'">
+  <meta name="referrer" content="no-referrer">
+  <title>PLaMo 翻訳 Web</title>
+  <meta name="description" content="PLaMo 3 Translate 0.8B をブラウザ内 (WebAssembly / WebGPU) で動かす翻訳サイト。テキストはサーバーに送信されません。">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>PLaMo 翻訳 Web</h1>
+    <p class="sub">PLaMo 3 Translate 0.8B をブラウザだけで実行します (llama.cpp / WebAssembly)。入力したテキストは外部に送信されません。</p>
+    <p class="sub">外部との通信は、モデルファイルの初回ダウンロード (Hugging Face) だけです。翻訳はすべてこのブラウザ内で行い、それ以外の通信はブラウザのセキュリティ設定 (CSP) で遮断しています。ダウンロード済みのモデルはオフラインでも使えます。</p>
+  </header>
+
+  <main>
+    <section class="panel" id="model-panel">
+      <div class="row">
+        <label>モデル
+          <select id="quant">
+            <option value="plamo-3-translate-0.8b-Q4_K_M.gguf" selected>Q4_K_M (573 MB, 推奨)</option>
+            <option value="plamo-3-translate-0.8b-Q3_K_M.gguf">Q3_K_M (486 MB)</option>
+            <option value="plamo-3-translate-0.8b-Q2_K.gguf">Q2_K (410 MB, 低精度)</option>
+          </select>
+        </label>
+        <label class="check"><input type="checkbox" id="use-gpu" checked> WebGPU を使う</label>
+        <button id="load" class="primary">モデルを読み込む</button>
+        <button id="clear-cache" class="ghost" title="ブラウザに保存したモデルを削除">キャッシュ削除</button>
+      </div>
+      <progress id="progress" max="1" value="0" hidden></progress>
+      <p id="status" class="status" role="status">未読み込み。初回はモデルをダウンロードします (2回目以降はブラウザのキャッシュを使います)。</p>
+    </section>
+
+    <section class="panel">
+      <div class="row langs">
+        <label>翻訳元
+          <select id="source-lang"></select>
+        </label>
+        <button id="swap" class="ghost" title="言語を入れ替え" aria-label="言語を入れ替え">⇄</button>
+        <label>翻訳先
+          <select id="target-lang"></select>
+        </label>
+        <label id="form-wrap">文体
+          <select id="form">
+            <option value="">指定なし</option>
+            <option value="polite">です・ます</option>
+            <option value="plain">だ・である</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="io">
+        <textarea id="input" placeholder="翻訳するテキストを入力" spellcheck="false"></textarea>
+        <textarea id="output" placeholder="翻訳結果" readonly></textarea>
+      </div>
+
+      <div class="row">
+        <button id="translate" class="primary" disabled>翻訳</button>
+        <button id="stop" disabled>停止</button>
+        <button id="copy" class="ghost">結果をコピー</button>
+        <span id="speed" class="status"></span>
+      </div>
+
+      <details>
+        <summary>詳細オプション (コンテキスト・用語集)</summary>
+        <label class="block">コンテキスト (参考情報。翻訳はされません)
+          <textarea id="context" rows="3" placeholder="例: 工作で折り紙を作っています。"></textarea>
+        </label>
+        <label class="block">用語集 (1行に「原語 => 訳語」)
+          <textarea id="glossary" rows="3" placeholder="管理画面 => dashboard"></textarea>
+        </label>
+        <label class="block">分割の目安 (文字数): 長文は段落単位でまとめて順に翻訳し、直前の訳を履歴として渡します
+          <input id="chunk" type="number" min="200" max="8000" step="100" value="1200">
+        </label>
+      </details>
+    </section>
+  </main>
+
+  <footer>
+    <p>本サイトは個人による非公式プロジェクトで、Preferred Networks とは関係ありません。</p>
+    <p><strong>Built with PLaMo</strong> — モデル: <a rel="noreferrer" href="https://huggingface.co/pfnet/plamo-3-translate-0.8b">pfnet/plamo-3-translate-0.8b</a> (<a rel="noreferrer" href="https://huggingface.co/pfnet/plamo-3-translate-0.8b-GGUF">GGUF</a>) /
+      <a rel="noreferrer" href="https://plamo.preferredai.jp/info/plamo-community-license-ja">PLaMo Community License</a>。
+      モデルは Hugging Face から直接ダウンロードされます。
+      推論: <a rel="noreferrer" href="https://github.com/ngxson/wllama">wllama</a> / <a rel="noreferrer" href="https://github.com/ggml-org/llama.cpp">llama.cpp</a> (MIT)。</p>
+  </footer>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
