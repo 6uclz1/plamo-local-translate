@@ -106,14 +106,8 @@ button:disabled { cursor: default; }
 .dot[data-state="error"] { background: var(--danger); }
 @keyframes pulse { 50% { opacity: 0.3; } }
 
-/* Hero */
-.hero { text-align: center; padding: 40px 8px 24px; }
-.nb { display: inline-block; }
-.hero h1 { margin: 0 0 8px; font-size: clamp(26px, 6vw, 34px); line-height: 1.25; letter-spacing: -0.02em; }
-.hero p { margin: 0; color: var(--label-2); font-size: 15px; }
-
 /* Composer */
-.composer { margin-bottom: 16px; }
+.composer { margin: 24px 0 16px; }
 .tray {
   display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px;
   background: var(--tray);
