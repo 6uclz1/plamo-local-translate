@@ -2,91 +2,187 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <!-- 通信はこのサイト自身とモデル配布元 (Hugging Face) だけに制限する。入力テキストは外部へ送れない。 -->
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'wasm-unsafe-eval' blob:; worker-src 'self' blob:; connect-src 'self' https://huggingface.co https://*.hf.co; style-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'">
   <meta name="referrer" content="no-referrer">
-  <title>PLaMo 翻訳 Web</title>
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#ecf5fd" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0e1116" media="(prefers-color-scheme: dark)">
+  <title>PLaMo Local Translate</title>
   <meta name="description" content="PLaMo 3 Translate 0.8B をブラウザ内 (WebAssembly / WebGPU) で動かす翻訳サイト。テキストはサーバーに送信されません。">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header>
-    <h1>PLaMo 翻訳 Web</h1>
-    <p class="sub">PLaMo 3 Translate 0.8B をブラウザだけで実行します (llama.cpp / WebAssembly)。入力したテキストは外部に送信されません。</p>
-    <p class="sub">外部との通信は、モデルファイルの初回ダウンロード (Hugging Face) だけです。翻訳はすべてこのブラウザ内で行い、それ以外の通信はブラウザのセキュリティ設定 (CSP) で遮断しています。ダウンロード済みのモデルはオフラインでも使えます。</p>
+  <!-- Icon set: simple stroke glyphs, referenced with <use>. -->
+  <svg class="sprite" aria-hidden="true">
+    <symbol id="i-swap" viewBox="0 0 24 24"><path d="M7 4 3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></symbol>
+    <symbol id="i-at" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M16 12v1.5a2.5 2.5 0 0 0 5 0V12a9 9 0 1 0-3.5 7.1"/></symbol>
+    <symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
+    <symbol id="i-stop" viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M15 9V6.5A2.5 2.5 0 0 0 12.5 4h-6A2.5 2.5 0 0 0 4 6.5v6A2.5 2.5 0 0 0 6.5 15H9"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></symbol>
+    <symbol id="i-cpu" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2.5"/><path d="M9.5 2.5v3M14.5 2.5v3M9.5 18.5v3M14.5 18.5v3M2.5 9.5h3M2.5 14.5h3M18.5 9.5h3M18.5 14.5h3"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13"/></symbol>
+  </svg>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">訳</span>
+      <span class="brand-name">PLaMo Local<span class="brand-sub"> Translate</span></span>
+    </div>
+    <button id="model-chip" class="chip" type="button" aria-haspopup="dialog" aria-controls="model-sheet">
+      <span class="dot" id="model-dot" aria-hidden="true"></span>
+      <span id="model-chip-label">モデル未読み込み</span>
+    </button>
   </header>
 
   <main>
-    <section class="panel" id="model-panel">
-      <div class="row">
-        <label>モデル
-          <select id="quant">
-            <option value="plamo-3-translate-0.8b-Q4_K_M.gguf" selected>Q4_K_M (573 MB, 推奨)</option>
-            <option value="plamo-3-translate-0.8b-Q3_K_M.gguf">Q3_K_M (486 MB)</option>
-            <option value="plamo-3-translate-0.8b-Q2_K.gguf">Q2_K (410 MB, 低精度)</option>
-          </select>
-        </label>
-        <label class="check"><input type="checkbox" id="use-gpu" checked> WebGPU を使う</label>
-        <button id="load" class="primary">モデルを読み込む</button>
-        <button id="clear-cache" class="ghost" title="ブラウザに保存したモデルを削除">キャッシュ削除</button>
-      </div>
-      <progress id="progress" max="1" value="0" hidden></progress>
-      <p id="status" class="status" role="status">未読み込み。初回はモデルをダウンロードします (2回目以降はブラウザのキャッシュを使います)。</p>
+    <section class="hero">
+      <h1><span class="nb">ブラウザだけで、</span><span class="nb">高品質な翻訳。</span></h1>
+      <p><span class="nb">PLaMo 3 Translate を端末内で実行。</span><span class="nb">入力した文章は外に出ません。</span></p>
     </section>
 
-    <section class="panel">
-      <div class="row langs">
-        <label>翻訳元
-          <select id="source-lang"></select>
-        </label>
-        <button id="swap" class="ghost" title="言語を入れ替え" aria-label="言語を入れ替え">⇄</button>
-        <label>翻訳先
-          <select id="target-lang"></select>
-        </label>
-        <label id="form-wrap">文体
-          <select id="form">
-            <option value="">指定なし</option>
-            <option value="polite">です・ます</option>
-            <option value="plain">だ・である</option>
-          </select>
-        </label>
+    <!-- Composer: settings tray + input card -->
+    <section class="composer" aria-label="翻訳する文章">
+      <div class="tray">
+        <div class="lang-row">
+          <label class="picker">
+            <span class="sr-only">翻訳元の言語</span>
+            <select id="source-lang"></select>
+            <svg class="icon sm" aria-hidden="true"><use href="#i-chevron"/></svg>
+          </label>
+          <button id="swap" class="icon-btn" type="button" aria-label="言語を入れ替え">
+            <svg class="icon" aria-hidden="true"><use href="#i-swap"/></svg>
+          </button>
+          <label class="picker strong">
+            <span class="sr-only">翻訳先の言語</span>
+            <select id="target-lang"></select>
+            <svg class="icon sm" aria-hidden="true"><use href="#i-chevron"/></svg>
+          </label>
+        </div>
+        <div id="form-wrap" class="segmented" role="radiogroup" aria-label="日本語の文体" hidden>
+          <label><input type="radio" name="form" value="" checked><span>指定なし</span></label>
+          <label><input type="radio" name="form" value="polite"><span>です・ます</span></label>
+          <label><input type="radio" name="form" value="plain"><span>だ・である</span></label>
+        </div>
       </div>
 
-      <div class="io">
-        <textarea id="input" placeholder="翻訳するテキストを入力" spellcheck="false"></textarea>
-        <textarea id="output" placeholder="翻訳結果" readonly></textarea>
+      <div class="card input-card">
+        <label for="input" class="sr-only">翻訳する文章</label>
+        <textarea id="input" placeholder="好きな言語で入力…" spellcheck="false" rows="6"></textarea>
+
+        <button id="extras-toggle" class="inline-chip" type="button" aria-expanded="false" aria-controls="extras">
+          <svg class="icon sm" aria-hidden="true"><use href="#i-at"/></svg>
+          <span>文脈・用語集を追加</span>
+        </button>
+        <div id="extras" class="extras" hidden>
+          <label class="field">
+            <span>文脈 <small>参考情報。翻訳はされません</small></span>
+            <textarea id="context" rows="2" placeholder="例: 工作で折り紙を作っています。"></textarea>
+          </label>
+          <label class="field">
+            <span>用語集 <small>1行に「原語 =&gt; 訳語」</small></span>
+            <textarea id="glossary" rows="2" placeholder="管理画面 =&gt; dashboard"></textarea>
+          </label>
+        </div>
+
+        <div class="toolbar">
+          <button id="open-settings" class="icon-btn" type="button" aria-label="モデルと詳細設定" aria-haspopup="dialog" aria-controls="model-sheet">
+            <svg class="icon" aria-hidden="true"><use href="#i-sliders"/></svg>
+          </button>
+          <span id="char-count" class="meta" aria-live="off"></span>
+          <button id="primary" class="primary" type="button">
+            <span id="primary-label">モデルを読み込む</span>
+            <svg class="icon sm" aria-hidden="true"><use id="primary-icon" href="#i-download"/></svg>
+          </button>
+        </div>
       </div>
 
-      <div class="row">
-        <button id="translate" class="primary" disabled>翻訳</button>
-        <button id="stop" disabled>停止</button>
-        <button id="copy" class="ghost">結果をコピー</button>
-        <span id="speed" class="status"></span>
+      <p id="status" class="status" role="status">初回はモデル (約 570 MB) をダウンロードします。2 回目からはこの端末に保存したモデルを使います。</p>
+      <div class="progress" id="progress-wrap" hidden>
+        <progress id="progress" max="1" value="0"></progress>
       </div>
+    </section>
 
-      <details>
-        <summary>詳細オプション (コンテキスト・用語集)</summary>
-        <label class="block">コンテキスト (参考情報。翻訳はされません)
-          <textarea id="context" rows="3" placeholder="例: 工作で折り紙を作っています。"></textarea>
-        </label>
-        <label class="block">用語集 (1行に「原語 => 訳語」)
-          <textarea id="glossary" rows="3" placeholder="管理画面 => dashboard"></textarea>
-        </label>
-        <label class="block">分割の目安 (文字数): 長文は段落単位でまとめて順に翻訳し、直前の訳を履歴として渡します
-          <input id="chunk" type="number" min="200" max="8000" step="100" value="1200">
-        </label>
-      </details>
+    <!-- Result -->
+    <section class="card result-card" id="result-card" aria-labelledby="result-lang" hidden>
+      <div class="result-head">
+        <span id="result-lang" class="result-lang">英語</span>
+        <span id="speed" class="meta"></span>
+        <button id="copy" class="icon-btn" type="button" aria-label="翻訳結果をコピー">
+          <svg class="icon" aria-hidden="true"><use id="copy-icon" href="#i-copy"/></svg>
+        </button>
+      </div>
+      <div id="output" class="output" aria-live="polite"></div>
+    </section>
+
+    <section class="note">
+      <span class="note-icon" aria-hidden="true"><svg class="icon"><use href="#i-lock"/></svg></span>
+      <div>
+        <p><strong>翻訳はこの端末の中で完結します。</strong></p>
+        <p>通信するのはモデルの初回ダウンロード (Hugging Face) だけです。それ以外の通信はブラウザの設定 (CSP) で遮断しています。入力や翻訳結果は保存しません。</p>
+      </div>
     </section>
   </main>
 
   <footer>
     <p>本サイトは個人による非公式プロジェクトで、Preferred Networks とは関係ありません。</p>
-    <p><strong>Built with PLaMo</strong> — モデル: <a rel="noreferrer" href="https://huggingface.co/pfnet/plamo-3-translate-0.8b">pfnet/plamo-3-translate-0.8b</a> (<a rel="noreferrer" href="https://huggingface.co/pfnet/plamo-3-translate-0.8b-GGUF">GGUF</a>) /
-      <a rel="noreferrer" href="https://plamo.preferredai.jp/info/plamo-community-license-ja">PLaMo Community License</a>。
-      モデルは Hugging Face から直接ダウンロードされます。
-      推論: <a rel="noreferrer" href="https://github.com/ngxson/wllama">wllama</a> / <a rel="noreferrer" href="https://github.com/ggml-org/llama.cpp">llama.cpp</a> (MIT)。</p>
+    <p><strong>Built with PLaMo</strong> · モデル <a rel="noreferrer" href="https://huggingface.co/pfnet/plamo-3-translate-0.8b">pfnet/plamo-3-translate-0.8b</a> (<a rel="noreferrer" href="https://huggingface.co/pfnet/plamo-3-translate-0.8b-GGUF">GGUF</a>) ·
+      <a rel="noreferrer" href="https://plamo.preferredai.jp/info/plamo-community-license-ja">PLaMo Community License</a> ·
+      推論 <a rel="noreferrer" href="https://github.com/ngxson/wllama">wllama</a> / <a rel="noreferrer" href="https://github.com/ggml-org/llama.cpp">llama.cpp</a> (MIT)</p>
   </footer>
+
+  <!-- Model & advanced settings sheet -->
+  <dialog id="model-sheet" class="sheet" aria-labelledby="sheet-title">
+    <div class="sheet-head">
+      <h2 id="sheet-title">モデルと設定</h2>
+      <button id="close-sheet" class="icon-btn" type="button" aria-label="閉じる">
+        <svg class="icon" aria-hidden="true"><use href="#i-close"/></svg>
+      </button>
+    </div>
+
+    <div class="group">
+      <label class="row-field">
+        <span>モデル</span>
+        <span class="select-wrap">
+          <select id="quant">
+            <option value="plamo-3-translate-0.8b-Q4_K_M.gguf" selected>Q4_K_M · 573 MB · 推奨</option>
+            <option value="plamo-3-translate-0.8b-Q3_K_M.gguf">Q3_K_M · 486 MB</option>
+            <option value="plamo-3-translate-0.8b-Q2_K.gguf">Q2_K · 410 MB · 低精度</option>
+          </select>
+          <svg class="icon sm" aria-hidden="true"><use href="#i-chevron"/></svg>
+        </span>
+      </label>
+      <label class="row-field">
+        <span>WebGPU を使う <small id="gpu-note">対応ブラウザでは GPU で高速に翻訳します</small></span>
+        <input type="checkbox" id="use-gpu" class="switch" role="switch" checked>
+      </label>
+    </div>
+
+    <div class="group">
+      <label class="row-field">
+        <span>分割の目安 (文字数) <small>長文は段落ごとにまとめて順に翻訳し、直前の訳を参考に渡します</small></span>
+        <input id="chunk" type="number" inputmode="numeric" min="200" max="8000" step="100" value="1200">
+      </label>
+    </div>
+
+    <div class="sheet-actions">
+      <button id="load" class="primary wide" type="button">
+        <svg class="icon sm" aria-hidden="true"><use href="#i-download"/></svg>
+        <span>このモデルを読み込む</span>
+      </button>
+      <button id="clear-cache" class="text-btn danger" type="button">
+        <svg class="icon sm" aria-hidden="true"><use href="#i-trash"/></svg>
+        <span>保存したモデルを削除</span>
+      </button>
+    </div>
+  </dialog>
 
   <script type="module" src="app.js"></script>
 </body>
