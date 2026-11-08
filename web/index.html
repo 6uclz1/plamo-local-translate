@@ -11,6 +11,8 @@
   <meta name="theme-color" content="#0e1116" media="(prefers-color-scheme: dark)">
   <title>PLaMo Local Translate</title>
   <meta name="description" content="PLaMo 3 Translate 0.8B をブラウザ内 (WebAssembly / WebGPU) で動かす翻訳サイト。テキストはサーバーに送信されません。">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -32,7 +34,7 @@
 
   <header class="topbar">
     <div class="brand">
-      <span class="brand-mark" aria-hidden="true">訳</span>
+      <img class="brand-mark" src="icon.svg" alt="" width="32" height="32">
       <span class="brand-name">PLaMo Local<span class="brand-sub"> Translate</span></span>
     </div>
     <button id="model-chip" class="chip" type="button" aria-haspopup="dialog" aria-controls="model-sheet">

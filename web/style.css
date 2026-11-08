@@ -86,11 +86,7 @@ button:disabled { cursor: default; }
 }
 @media (max-width: 792px) { .topbar { margin: 12px 16px 0; } }
 .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.brand-mark {
-  display: grid; place-items: center; width: 32px; height: 32px; flex: none;
-  border-radius: 10px; background: var(--accent); color: var(--on-accent);
-  font-weight: 700; font-size: 17px;
-}
+.brand-mark { display: block; width: 32px; height: 32px; flex: none; }
 @media (max-width: 420px) { .brand-sub { display: none; } }
 .brand-name { font-weight: 700; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .chip {
